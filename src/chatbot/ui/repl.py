@@ -2,7 +2,9 @@ from collections.abc import Callable
 from typing import TextIO
 
 from chatbot.domain.models import Conversation, Message, Role
-from chatbot.providers.base import ChatProvider, ProviderError
+from chatbot.domain.requests import ChatRequest
+from chatbot.pipeline import HelpPipeline
+from chatbot.providers.base import Answerer, ChatProvider, ProviderError
 
 COMMANDS = ("/help", "/model", "/history", "/clear", "/quit")
 
@@ -10,13 +12,15 @@ COMMANDS = ("/help", "/model", "/history", "/clear", "/quit")
 class Repl:
     def __init__(
         self,
-        provider: ChatProvider,
+        provider: ChatProvider | Answerer,
         *,
+        pipeline: HelpPipeline | None = None,
         input_stream: TextIO,
         output_stream: TextIO,
         prompt_reader: Callable[[str], str] | None = None,
     ) -> None:
         self.provider = provider
+        self.pipeline = pipeline
         self.input_stream = input_stream
         self.output_stream = output_stream
         self.conversation = Conversation()
@@ -73,6 +77,15 @@ class Repl:
         return False
 
     def _respond(self, text: str) -> None:
+        if self.pipeline is not None:
+            outcome = self.pipeline.handle(ChatRequest(text), self.conversation.copy_messages())
+            if not outcome.responded or outcome.content is None:
+                return
+            self.conversation.add(Message(Role.USER, text))
+            self.conversation.add(Message(Role.ASSISTANT, outcome.content))
+            self._write(f"Assistant> {outcome.content}\n")
+            return
+
         self.conversation.add(Message(Role.USER, text))
         try:
             response = self.provider.respond(self.conversation.copy_messages())

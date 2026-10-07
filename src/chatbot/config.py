@@ -14,6 +14,8 @@ class Settings:
     provider: str = "mock"
     model: str = "mock-1"
     config_file: Path | None = None
+    knowledge_file: Path = Path("documentation/guide-cache.json")
+    minimum_relevance: float = 0.2
 
 
 def load_settings(
@@ -21,6 +23,8 @@ def load_settings(
     provider: str | None = None,
     model: str | None = None,
     config_file: Path | None = None,
+    knowledge_file: Path | None = None,
+    minimum_relevance: float | None = None,
     environ: dict[str, str] | None = None,
 ) -> Settings:
     environment = os.environ if environ is None else environ
@@ -39,6 +43,16 @@ def load_settings(
         values["provider"] = provider
     if model is not None:
         values["model"] = model
+    values["knowledge_file"] = file_values.get("knowledge_file", "documentation/guide-cache.json")
+    values["minimum_relevance"] = file_values.get("minimum_relevance", 0.2)
+    if environment.get("CHATBOT_KNOWLEDGE_FILE"):
+        values["knowledge_file"] = environment["CHATBOT_KNOWLEDGE_FILE"]
+    if environment.get("CHATBOT_MINIMUM_RELEVANCE"):
+        values["minimum_relevance"] = environment["CHATBOT_MINIMUM_RELEVANCE"]
+    if knowledge_file is not None:
+        values["knowledge_file"] = knowledge_file
+    if minimum_relevance is not None:
+        values["minimum_relevance"] = minimum_relevance
 
     normalized_provider = str(values["provider"]).strip().lower()
     normalized_model = str(values["model"]).strip()
@@ -46,7 +60,19 @@ def load_settings(
         raise ConfigurationError("provider cannot be empty")
     if not normalized_model:
         raise ConfigurationError("model cannot be empty")
-    return Settings(normalized_provider, normalized_model, selected_file)
+    try:
+        relevance = float(values["minimum_relevance"])
+    except (TypeError, ValueError) as error:
+        raise ConfigurationError("minimum relevance must be a number") from error
+    if not 0 <= relevance <= 1:
+        raise ConfigurationError("minimum relevance must be between 0 and 1")
+    return Settings(
+        provider=normalized_provider,
+        model=normalized_model,
+        config_file=selected_file,
+        knowledge_file=Path(values["knowledge_file"]).expanduser(),
+        minimum_relevance=relevance,
+    )
 
 
 def _config_path(environ: dict[str, str]) -> Path | None:
