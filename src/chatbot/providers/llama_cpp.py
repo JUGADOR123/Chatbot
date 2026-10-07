@@ -5,7 +5,7 @@ from threading import Lock
 from typing import Any
 
 from chatbot.domain.models import Message, Role
-from chatbot.domain.requests import ClassificationResult, Intent, Topic
+from chatbot.domain.requests import Audience, ClassificationResult, Intent, Topic
 from chatbot.providers.base import ProviderError, ProviderResponse
 from chatbot.retrieval.index import Evidence
 
@@ -146,20 +146,21 @@ class QwenClassifier:
             "Allowed topic values are auto_mcs or unknown. Use auto_mcs only when the message "
             "is about Auto-MCS. For uncertainty, use other/unknown with low confidence. "
             'Return exactly: {"intent":"help|other","topic":"auto_mcs|unknown",'
-            '"confidence":0.0,"reason":"short explanation"}.\n\nMessage: ' + text
+            '"confidence":0.0,"audience":"end_user|developer|unknown","reason":"short explanation"}.\n\nMessage: ' + text
         )
         try:
             result = self._completion(prompt)
             values = json.loads(result)
             intent = Intent(str(values["intent"]).lower())
             topic = Topic(str(values["topic"]).lower())
+            audience = Audience(str(values.get("audience", "unknown")).lower())
             confidence = max(0.0, min(1.0, float(values["confidence"])))
             reason = str(values.get("reason", ""))[:200]
             if confidence < 0.6:
-                return ClassificationResult(Intent.OTHER, Topic.UNKNOWN, confidence, "low classifier confidence")
-            return ClassificationResult(intent, topic, confidence, reason)
+                return ClassificationResult(Intent.OTHER, Topic.UNKNOWN, confidence, "low classifier confidence", Audience.UNKNOWN)
+            return ClassificationResult(intent, topic, confidence, reason, audience)
         except (KeyError, TypeError, ValueError, json.JSONDecodeError, ProviderError):
-            return ClassificationResult(Intent.OTHER, Topic.UNKNOWN, 0.0, "classifier abstained")
+            return ClassificationResult(Intent.OTHER, Topic.UNKNOWN, 0.0, "classifier abstained", Audience.UNKNOWN)
 
     def close(self) -> None:
         self._llama = None

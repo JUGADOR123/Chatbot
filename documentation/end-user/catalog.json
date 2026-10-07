@@ -1,0 +1,92 @@
+[
+  {
+    "id": "installation",
+    "title": "Installation and first launch",
+    "category": "installation",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#installation--setup",
+    "guide_url": "https://www.auto-mcs.com/guides/getting-started",
+    "path": "installation.md",
+    "keywords": ["download", "zip", "extract", "launch", "java", "windows", "linux", "macos"]
+  },
+  {
+    "id": "server-creation-and-import",
+    "title": "Creating and importing servers",
+    "category": "server_creation",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#installation--setup",
+    "guide_url": "https://www.auto-mcs.com/guides/getting-started",
+    "path": "server-creation-and-import.md",
+    "keywords": ["create", "template", "import", "server folder", "modpack", "mrpack", "world"]
+  },
+  {
+    "id": "server-management",
+    "title": "Managing a server",
+    "category": "server_management",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#installation--setup",
+    "guide_url": "https://www.auto-mcs.com/guides/server-manager",
+    "path": "server-management.md",
+    "keywords": ["launch", "stop", "console", "world", "version", "distribution", "server properties", "settings"]
+  },
+  {
+    "id": "addons-and-modpacks",
+    "title": "Mods, plugins, and modpacks",
+    "category": "addons",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/add-ons",
+    "path": "addons-and-modpacks.md",
+    "keywords": ["mod", "plugin", "add-on", "addon", "modpack", "modrinth", "fabric", "forge", "paper"]
+  },
+  {
+    "id": "networking-and-playit",
+    "title": "Connecting friends and networking",
+    "category": "networking",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/settings",
+    "path": "networking-and-playit.md",
+    "keywords": ["join", "connect", "friends", "playit", "port", "firewall", "ip", "network"]
+  },
+  {
+    "id": "backups-and-recovery",
+    "title": "Backups and recovery",
+    "category": "backups",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/back-ups",
+    "path": "backups-and-recovery.md",
+    "keywords": ["backup", "back-up", "restore", "recover", "automation", "save"]
+  },
+  {
+    "id": "access-control",
+    "title": "Access control",
+    "category": "access_control",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/access-control",
+    "path": "access-control.md",
+    "keywords": ["operator", "op", "ban", "banned", "whitelist", "allow", "permission", "access"]
+  },
+  {
+    "id": "troubleshooting",
+    "title": "Troubleshooting common problems",
+    "category": "troubleshooting",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/getting-started",
+    "path": "troubleshooting.md",
+    "keywords": ["error", "issue", "problem", "crash", "cannot", "can't", "failed", "not working", "join"]
+  },
+  {
+    "id": "telepath-for-users",
+    "title": "Remote management with Telepath",
+    "category": "telepath",
+    "audience": "end_user",
+    "source_url": "https://github.com/macarooni-man/auto-mcs#auto-mcs",
+    "guide_url": "https://www.auto-mcs.com/guides/telepath",
+    "path": "telepath-for-users.md",
+    "keywords": ["remote", "telepath", "pair", "pairing", "vps", "cloud", "manage"]
+  }
+]

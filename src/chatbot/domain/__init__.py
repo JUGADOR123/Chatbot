@@ -2,6 +2,7 @@
 
 from chatbot.domain.models import Conversation, Message, Role
 from chatbot.domain.requests import (
+	Audience,
 	ChatRequest,
 	ClassificationResult,
 	Intent,
@@ -13,6 +14,7 @@ from chatbot.domain.requests import (
 __all__ = [
 	"ChatRequest",
 	"ClassificationResult",
+	"Audience",
 	"Conversation",
 	"Intent",
 	"Message",

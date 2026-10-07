@@ -39,3 +39,10 @@ def test_pipeline_uses_documentation_for_generic_help_question() -> None:
 
     assert outcome.responded is True
     assert outcome.sources
+
+
+def test_pipeline_prefers_networking_evidence_for_connection_questions() -> None:
+    outcome = make_pipeline().handle(ChatRequest("Friends cannot join my server"))
+
+    assert outcome.responded is True
+    assert outcome.sources[0].category == "networking"

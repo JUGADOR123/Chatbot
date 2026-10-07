@@ -118,6 +118,11 @@ shutdown. Conversation history is intentionally in memory for this first
 version. A real local model can be added behind the answerer interface without
 changing the routing or transport boundaries.
 
+The preferred knowledge layer is [documentation/end-user](documentation/end-user),
+which categorizes support for people running prebuilt binaries. Developer
+requests such as source builds, amscript API usage, and repository contribution
+questions are intentionally rejected by the classifier by default.
+
 ## Development
 
 ```powershell
