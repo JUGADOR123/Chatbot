@@ -15,6 +15,22 @@ py -3.12 -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
+For a complete local setup, the repository includes scripts that update or clone
+the project, create the Python 3.12.10 environment, install local inference
+support, download both Qwen GGUF models into `models/`, and write an ignored
+`config.local.json`:
+
+```bash
+REPO_URL=https://github.com/your-user/your-repository.git bash setup.sh
+```
+
+```powershell
+.\setup.ps1 -RepoUrl https://github.com/your-user/your-repository.git
+```
+
+When run from an existing checkout, omit the repository URL. The scripts require
+`curl` on Unix-like systems and Git plus the Python 3.12 launcher on Windows.
+
 Optional local GGUF inference support is installed separately because it may
 require a platform-specific wheel or compiler toolchain:
 
