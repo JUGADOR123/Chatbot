@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from chatbot.domain.requests import ClassificationResult
+from chatbot.domain.requests import ClassificationResult, Intent
 
 
 class Classifier(Protocol):
@@ -25,3 +25,26 @@ class RulesClassifier:
         confidence = 1.0 if intent_is_help and topic_is_auto_mcs else 0.0
         reason = "supported help request" if confidence else "not a supported help request"
         return ClassificationResult(intent, topic, confidence, reason)
+
+
+class FallbackClassifier:
+    def __init__(self, primary: Classifier, fallback: Classifier | None = None) -> None:
+        self.primary = primary
+        self.fallback = fallback or RulesClassifier()
+
+    def classify(self, text: str) -> ClassificationResult:
+        primary_result = self.primary.classify(text)
+        fallback_result = self.fallback.classify(text)
+        if primary_result.intent is not Intent.HELP and fallback_result.intent is Intent.HELP:
+            return fallback_result
+        return primary_result
+
+    def initialize(self) -> None:
+        initialize = getattr(self.primary, "initialize", None)
+        if initialize is not None:
+            initialize()
+
+    def close(self) -> None:
+        close = getattr(self.primary, "close", None)
+        if close is not None:
+            close()

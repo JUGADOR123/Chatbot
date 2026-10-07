@@ -26,7 +26,7 @@ class ClassificationResult:
 
     @property
     def is_help_request(self) -> bool:
-        return self.intent is Intent.HELP and self.topic is Topic.AUTO_MCS
+        return self.intent is Intent.HELP
 
 
 @dataclass(frozen=True, slots=True)

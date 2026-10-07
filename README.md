@@ -21,14 +21,16 @@ support, download both Qwen GGUF models into `models/`, and write an ignored
 `config.local.json`:
 
 ```bash
-REPO_URL=https://github.com/your-user/your-repository.git bash setup.sh
+bash setup.sh
 ```
 
 ```powershell
-.\setup.ps1 -RepoUrl https://github.com/your-user/your-repository.git
+.\setup.ps1
 ```
 
-When run from an existing checkout, omit the repository URL. The scripts require
+The scripts default to `https://github.com/JUGADOR123/Chatbot.git`; set `REPO_URL`
+or pass `-RepoUrl` to use a fork. When run from an existing checkout, they update
+that checkout instead. The scripts require
 `curl` on Unix-like systems and Git plus the Python 3.12 launcher on Windows.
 
 Optional local GGUF inference support is installed separately because it may
@@ -57,8 +59,9 @@ Qwen3-0.6B classifier GGUF:
 }
 ```
 
-Set `CHATBOT_CONFIG_FILE` to use the file. The models are loaded once during
-startup and the service is not ready until enabled components initialize.
+Set `CHATBOT_CONFIG_FILE` to use a different file. `chatbot` automatically uses
+`config.local.json` when it exists. The models are loaded once during startup
+and the service is not ready until enabled components initialize.
 
 The default mock provider runs without credentials or network access. At startup,
 the service loads the documentation cache into an in-memory SQLite FTS5 index
@@ -68,10 +71,27 @@ before accepting messages:
 chatbot
 ```
 
-Only help or problem-solving messages that mention `auto-mcs` are answered. The
-message must also match the cached documentation well enough to pass the
-relevance threshold. Other messages are ignored. Answers include the matching
-guide and section internally so a future Discord adapter can render citations.
+Only help or problem-solving messages that match the cached documentation well
+enough to pass the relevance threshold are answered. The current cache is about
+Auto-MCS, so unrelated messages are ignored. Answers include the matching guide
+and section internally so a future Discord adapter can render citations.
+
+Use `chatbot --debug` to see startup readiness, classifier results, retrieval
+evidence, accepted questions, and rejection reasons.
+
+## Benchmarking
+
+Install the benchmark dependency and run the configured model with GPU layers
+disabled:
+
+```powershell
+python -m pip install -e ".[benchmark]"
+python -m chatbot.benchmark --runs 3 --output benchmark-results/cpu.json
+```
+
+The report includes startup time, average/median/minimum/maximum response time,
+peak process RAM, and NVIDIA VRAM observations. `nvidia-smi` values include
+other GPU processes; CPU-only mode is confirmed by `n_gpu_layers=0`.
 
 ## CLI commands
 

@@ -24,6 +24,7 @@ class Settings:
     n_gpu_layers: int = 0
     temperature: float = 0.2
     max_tokens: int = 384
+    debug: bool = False
 
 
 def load_settings(
@@ -41,6 +42,7 @@ def load_settings(
     n_gpu_layers: int | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
+    debug: bool | None = None,
     environ: dict[str, str] | None = None,
 ) -> Settings:
     environment = os.environ if environ is None else environ
@@ -78,6 +80,7 @@ def load_settings(
         "n_gpu_layers": file_values.get("n_gpu_layers", 0),
         "temperature": file_values.get("temperature", 0.2),
         "max_tokens": file_values.get("max_tokens", 384),
+        "debug": file_values.get("debug", False),
     })
     for key, environment_key in {
         "model_path": "CHATBOT_MODEL_PATH",
@@ -88,6 +91,7 @@ def load_settings(
         "n_gpu_layers": "CHATBOT_N_GPU_LAYERS",
         "temperature": "CHATBOT_TEMPERATURE",
         "max_tokens": "CHATBOT_MAX_TOKENS",
+        "debug": "CHATBOT_DEBUG",
     }.items():
         if environment.get(environment_key):
             values[key] = environment[environment_key]
@@ -100,6 +104,7 @@ def load_settings(
         "n_gpu_layers": n_gpu_layers,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        "debug": debug,
     }.items():
         if value is not None:
             values[key] = value
@@ -133,6 +138,7 @@ def load_settings(
         raise ConfigurationError("context, threads, and max tokens must be positive and sufficiently large")
     if numeric_values["n_gpu_layers"] < 0 or numeric_values["temperature"] < 0:
         raise ConfigurationError("GPU layers and temperature cannot be negative")
+    debug_value = _parse_bool(values["debug"])
     return Settings(
         provider=normalized_provider,
         model=normalized_model,
@@ -143,6 +149,7 @@ def load_settings(
         classifier=normalized_classifier,
         classifier_model_path=_optional_path(values["classifier_model_path"]),
         **numeric_values,
+        debug=debug_value,
     )
 
 
@@ -155,11 +162,22 @@ def _optional_path(value: Any) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off", ""}:
+        return False
+    raise ConfigurationError("debug must be a boolean")
+
+
 def _read_config(path: Path | None) -> dict[str, Any]:
     if path is None or not path.exists():
         return {}
     try:
-        with path.open(encoding="utf-8") as config_handle:
+        with path.open(encoding="utf-8-sig") as config_handle:
             values = json.load(config_handle)
     except (OSError, json.JSONDecodeError) as error:
         raise ConfigurationError(f"could not read config file: {path}") from error

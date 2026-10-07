@@ -1,3 +1,4 @@
+import logging
 import sys
 from typing import TextIO
 
@@ -6,11 +7,13 @@ from chatbot.domain.models import Message
 from chatbot.domain.requests import ChatRequest, PipelineOutcome
 from chatbot.pipeline import HelpPipeline, PipelinePolicy
 from chatbot.providers.base import Answerer, ChatProvider, ProviderError
-from chatbot.providers.classifier import Classifier, RulesClassifier
+from chatbot.providers.classifier import Classifier, FallbackClassifier, RulesClassifier
 from chatbot.providers.llama_cpp import LlamaCppAnswerer, QwenClassifier
 from chatbot.providers.mock import MockAnswerer, MockProvider
 from chatbot.retrieval.index import DocumentIndex
 from chatbot.ui.repl import Repl
+
+logger = logging.getLogger(__name__)
 
 
 def create_provider(settings: Settings) -> ChatProvider:
@@ -43,10 +46,13 @@ def create_classifier(settings: Settings) -> Classifier:
     if settings.classifier == "qwen":
         if settings.classifier_model_path is None:
             raise ConfigurationError("classifier_model_path is required for the qwen classifier")
-        return QwenClassifier(
-            settings.classifier_model_path,
-            n_threads=settings.n_threads,
-            n_gpu_layers=settings.n_gpu_layers,
+        return FallbackClassifier(
+            QwenClassifier(
+                settings.classifier_model_path,
+                n_threads=settings.n_threads,
+                n_gpu_layers=settings.n_gpu_layers,
+            ),
+            RulesClassifier(),
         )
     raise ConfigurationError(f"unsupported classifier: {settings.classifier}")
 
@@ -65,11 +71,17 @@ class ChatbotService:
         classifier: Classifier | None = None
         index: DocumentIndex | None = None
         try:
+            logger.debug("startup: loading documentation index from %s", self.settings.knowledge_file)
             index = DocumentIndex.from_cache(self.settings.knowledge_file)
+            logger.debug("startup: creating answerer provider=%s model=%s", self.settings.provider, self.settings.model)
             answerer = create_answerer(self.settings)
+            logger.debug("startup: creating classifier mode=%s", self.settings.classifier)
             classifier = create_classifier(self.settings)
+            logger.debug("startup: initializing answerer")
             _initialize_component(answerer)
+            logger.debug("startup: initializing classifier")
             _initialize_component(classifier)
+            logger.debug("startup: warming answerer")
             _warmup_component(answerer)
             self.pipeline = HelpPipeline(
                 index,
@@ -81,7 +93,9 @@ class ChatbotService:
             self.classifier = classifier
             self.index = index
             self.ready = True
+            logger.debug("startup: service ready")
         except (ConfigurationError, ProviderError, ValueError) as error:
+            logger.exception("startup: service initialization failed")
             _close_component(classifier)
             _close_component(answerer)
             if index is not None:
@@ -94,6 +108,7 @@ class ChatbotService:
         return self.pipeline.handle(request, history)
 
     def shutdown(self) -> None:
+        logger.debug("shutdown: releasing service resources")
         if self.index is not None:
             self.index.close()
         self.index = None

@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import logging
 from typing import TextIO
 
 from chatbot.domain.models import Conversation, Message, Role
@@ -7,6 +8,7 @@ from chatbot.pipeline import HelpPipeline
 from chatbot.providers.base import Answerer, ChatProvider, ProviderError
 
 COMMANDS = ("/help", "/model", "/history", "/clear", "/quit")
+logger = logging.getLogger(__name__)
 
 
 class Repl:
@@ -80,6 +82,7 @@ class Repl:
         if self.pipeline is not None:
             outcome = self.pipeline.handle(ChatRequest(text), self.conversation.copy_messages())
             if not outcome.responded or outcome.content is None:
+                logger.debug("message ignored by pipeline: reason=%s", outcome.reason)
                 return
             self.conversation.add(Message(Role.USER, text))
             self.conversation.add(Message(Role.ASSISTANT, outcome.content))

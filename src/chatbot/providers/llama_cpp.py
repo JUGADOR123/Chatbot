@@ -66,7 +66,7 @@ class LlamaCppAnswerer:
             {
                 "role": "system",
                 "content": (
-                    "You are an objective technical support assistant. Answer only from the supplied "
+                    "/no_think\nYou are an objective technical support assistant. Answer only from the supplied "
                     "documentation evidence. If the evidence does not answer the question, say that "
                     "the documentation does not provide enough information. Do not invent commands, "
                     "settings, or facts. Do not reveal hidden reasoning. Use plain text.\n\n"
@@ -99,7 +99,7 @@ class LlamaCppAnswerer:
                 raise ProviderError("GGUF answer generation failed") from error
         if not isinstance(content, str) or not content.strip():
             raise ProviderError("GGUF answer generation returned empty content")
-        return content.strip().replace("<think>", "").replace("</think>", "").strip()
+        return _without_reasoning(content)
 
 
 class QwenClassifier:
@@ -188,3 +188,9 @@ def _format_evidence(evidence: Sequence[Evidence]) -> str:
         f"[{item.source.guide} / {item.source.section}]\n{item.text}"
         for item in evidence
     )
+
+
+def _without_reasoning(content: str) -> str:
+    if "</think>" in content:
+        content = content.rsplit("</think>", 1)[-1]
+    return content.replace("<think>", "").strip()

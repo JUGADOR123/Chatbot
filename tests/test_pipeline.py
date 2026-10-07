@@ -32,3 +32,10 @@ def test_pipeline_ignores_supported_topic_without_help_intent() -> None:
     outcome = make_pipeline().handle(ChatRequest("auto-mcs"))
 
     assert outcome.responded is False
+
+
+def test_pipeline_uses_documentation_for_generic_help_question() -> None:
+    outcome = make_pipeline().handle(ChatRequest("How do I start a server?"))
+
+    assert outcome.responded is True
+    assert outcome.sources

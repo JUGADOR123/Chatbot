@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$RepoUrl = $env:REPO_URL,
+    [string]$RepoUrl = $(if ([string]::IsNullOrWhiteSpace($env:REPO_URL)) { "https://github.com/JUGADOR123/Chatbot.git" } else { $env:REPO_URL }),
     [string]$ProjectDir = $PSScriptRoot,
     [string]$PythonLauncher = "py"
 )
@@ -9,9 +9,6 @@ $ErrorActionPreference = "Stop"
 $modelDirectory = Join-Path $ProjectDir "models"
 
 if (-not (Test-Path (Join-Path $ProjectDir ".git"))) {
-    if ([string]::IsNullOrWhiteSpace($RepoUrl)) {
-        throw "Set -RepoUrl or REPO_URL to clone the project, or run this script from an existing checkout."
-    }
     if ((Test-Path $ProjectDir) -and ((Get-ChildItem -Force $ProjectDir | Measure-Object).Count -gt 0)) {
         throw "Project directory is not empty and is not a Git checkout: $ProjectDir"
     }
@@ -44,20 +41,32 @@ $python = Join-Path $venvPath "Scripts\python.exe"
 & $python -m pip install -e ".[dev,local]"
 
 New-Item -ItemType Directory -Force -Path $modelDirectory | Out-Null
-function Get-Model([string]$Url, [string]$Destination) {
-    if (Test-Path $Destination) {
+function Get-Model([string]$Url, [string]$Destination, [long]$ExpectedLength) {
+    if ((Test-Path $Destination) -and ((Get-Item $Destination).Length -eq $ExpectedLength)) {
         Write-Host "Already present: $Destination"
         return
     }
-    Invoke-WebRequest -Uri $Url -OutFile $Destination
+    if (Test-Path $Destination) {
+        Remove-Item -Force $Destination
+    }
+    $partial = "$Destination.part"
+    if (Test-Path $partial) {
+        Remove-Item -Force $partial
+    }
+    Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $partial
+    if ((Get-Item $partial).Length -ne $ExpectedLength) {
+        Remove-Item -Force $partial
+        throw "Downloaded file has an unexpected size: $Destination"
+    }
+    Move-Item -Force $partial $Destination
 }
 
 Get-Model `
-    "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf?download=true" `
-    (Join-Path $modelDirectory "qwen3-1.7b-q4_k_m.gguf")
+    "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf?download=true" `
+    (Join-Path $modelDirectory "qwen3-1.7b-q4_k_m.gguf") 1282439584
 Get-Model `
-    "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf?download=true" `
-    (Join-Path $modelDirectory "qwen3-0.6b-q4_k_m.gguf")
+    "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen_Qwen3-0.6B-Q4_K_M.gguf?download=true" `
+    (Join-Path $modelDirectory "qwen3-0.6b-q4_k_m.gguf") 484220320
 
 $config = @'
 {
@@ -78,4 +87,4 @@ Set-Content -Path (Join-Path $ProjectDir "config.local.json") -Value $config -En
 Write-Host ""
 Write-Host "Setup complete in $ProjectDir"
 Write-Host "Activate with: .\.venv\Scripts\Activate.ps1"
-Write-Host "Run with: `$env:CHATBOT_CONFIG_FILE='config.local.json'; chatbot"
+Write-Host "Run with: chatbot --debug"

@@ -3,15 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$SCRIPT_DIR}"
-REPO_URL="${REPO_URL:-}"
+REPO_URL="${REPO_URL:-https://github.com/JUGADOR123/Chatbot.git}"
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 MODEL_DIR="$PROJECT_DIR/models"
 
 if [[ ! -d "$PROJECT_DIR/.git" ]]; then
-    if [[ -z "$REPO_URL" ]]; then
-        echo "Set REPO_URL to clone the project, or run this script from an existing checkout." >&2
-        exit 1
-    fi
+    # The repository URL defaults to the project's public origin.
     if [[ -e "$PROJECT_DIR" && -n "$(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
         echo "Project directory is not empty and is not a Git checkout: $PROJECT_DIR" >&2
         exit 1
@@ -52,19 +49,29 @@ mkdir -p "$MODEL_DIR"
 download_model() {
     local url="$1"
     local destination="$2"
-    if [[ -f "$destination" ]]; then
+    local expected_size="$3"
+    if [[ -f "$destination" && "$(wc -c < "$destination")" -eq "$expected_size" ]]; then
         echo "Already present: $destination"
         return
     fi
-    curl --fail --location --retry 3 --progress-bar "$url" --output "$destination"
+    rm -f "$destination" "${destination}.part"
+    curl --fail --location --retry 3 --progress-bar "$url" --output "${destination}.part"
+    if [[ "$(wc -c < "${destination}.part")" -ne "$expected_size" ]]; then
+        rm -f "${destination}.part"
+        echo "Downloaded file has an unexpected size: $destination" >&2
+        exit 1
+    fi
+    mv "${destination}.part" "$destination"
 }
 
 download_model \
-    "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf?download=true" \
-    "$MODEL_DIR/qwen3-1.7b-q4_k_m.gguf"
+    "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf?download=true" \
+    "$MODEL_DIR/qwen3-1.7b-q4_k_m.gguf" \
+    1282439584
 download_model \
-    "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf?download=true" \
-    "$MODEL_DIR/qwen3-0.6b-q4_k_m.gguf"
+    "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen_Qwen3-0.6B-Q4_K_M.gguf?download=true" \
+    "$MODEL_DIR/qwen3-0.6b-q4_k_m.gguf" \
+    484220320
 
 cat > config.local.json <<'JSON'
 {
@@ -84,4 +91,4 @@ JSON
 echo
 echo "Setup complete in $PROJECT_DIR"
 echo "Activate with: source .venv/bin/activate"
-echo "Run with: CHATBOT_CONFIG_FILE=config.local.json chatbot"
+echo "Run with: chatbot --debug"
