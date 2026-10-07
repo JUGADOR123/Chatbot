@@ -28,6 +28,15 @@ class MockAnswerer:
     def __init__(self, model: str = "mock-answerer") -> None:
         self.model = model
 
+    def initialize(self) -> None:
+        return
+
+    def warmup(self) -> None:
+        return
+
+    def close(self) -> None:
+        return
+
     def respond(self, messages: Sequence[Message], evidence: Sequence[Evidence]) -> ProviderResponse:
         if not messages or not evidence:
             raise ValueError("an answer requires a message and documentation evidence")

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from chatbot.domain.models import Message, Role
 from chatbot.domain.requests import ChatRequest, ClassificationResult, Intent, PipelineOutcome, Topic
 from chatbot.providers.base import Answerer
+from chatbot.providers.classifier import Classifier, RulesClassifier
 from chatbot.retrieval.index import DocumentIndex
 
 
@@ -13,23 +14,20 @@ class PipelinePolicy:
 
 
 class HelpPipeline:
-    def __init__(self, index: DocumentIndex, answerer: Answerer, policy: PipelinePolicy | None = None) -> None:
+    def __init__(
+        self,
+        index: DocumentIndex,
+        answerer: Answerer,
+        policy: PipelinePolicy | None = None,
+        classifier: Classifier | None = None,
+    ) -> None:
         self.index = index
         self.answerer = answerer
         self.policy = policy or PipelinePolicy()
+        self.classifier = classifier or RulesClassifier()
 
     def classify(self, text: str) -> ClassificationResult:
-        normalized = text.lower()
-        help_terms = (
-            "how", "help", "why", "what", "where", "when", "error", "issue",
-            "problem", "cannot", "can't", "crash",
-        )
-        intent = Intent.HELP if "?" in text or any(term in normalized for term in help_terms) else Intent.OTHER
-        topic_terms = ("auto-mcs", "auto mcs", "automcs")
-        topic = Topic.AUTO_MCS if any(term in normalized for term in topic_terms) else Topic.UNKNOWN
-        confidence = 1.0 if intent is Intent.HELP and topic is Topic.AUTO_MCS else 0.0
-        reason = "supported help request" if confidence else "not a supported help request"
-        return ClassificationResult(intent, topic, confidence, reason)
+        return self.classifier.classify(text)
 
     def handle(self, request: ChatRequest, history: Sequence[Message] = ()) -> PipelineOutcome:
         classification = self.classify(request.text)

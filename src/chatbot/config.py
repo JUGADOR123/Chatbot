@@ -16,6 +16,14 @@ class Settings:
     config_file: Path | None = None
     knowledge_file: Path = Path("documentation/guide-cache.json")
     minimum_relevance: float = 0.2
+    model_path: Path | None = None
+    classifier: str = "rules"
+    classifier_model_path: Path | None = None
+    n_ctx: int = 4096
+    n_threads: int = 4
+    n_gpu_layers: int = 0
+    temperature: float = 0.2
+    max_tokens: int = 384
 
 
 def load_settings(
@@ -25,6 +33,14 @@ def load_settings(
     config_file: Path | None = None,
     knowledge_file: Path | None = None,
     minimum_relevance: float | None = None,
+    model_path: Path | None = None,
+    classifier: str | None = None,
+    classifier_model_path: Path | None = None,
+    n_ctx: int | None = None,
+    n_threads: int | None = None,
+    n_gpu_layers: int | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
     environ: dict[str, str] | None = None,
 ) -> Settings:
     environment = os.environ if environ is None else environ
@@ -53,6 +69,40 @@ def load_settings(
         values["knowledge_file"] = knowledge_file
     if minimum_relevance is not None:
         values["minimum_relevance"] = minimum_relevance
+    values.update({
+        "model_path": file_values.get("model_path"),
+        "classifier": file_values.get("classifier", "rules"),
+        "classifier_model_path": file_values.get("classifier_model_path"),
+        "n_ctx": file_values.get("n_ctx", 4096),
+        "n_threads": file_values.get("n_threads", 4),
+        "n_gpu_layers": file_values.get("n_gpu_layers", 0),
+        "temperature": file_values.get("temperature", 0.2),
+        "max_tokens": file_values.get("max_tokens", 384),
+    })
+    for key, environment_key in {
+        "model_path": "CHATBOT_MODEL_PATH",
+        "classifier": "CHATBOT_CLASSIFIER",
+        "classifier_model_path": "CHATBOT_CLASSIFIER_MODEL_PATH",
+        "n_ctx": "CHATBOT_N_CTX",
+        "n_threads": "CHATBOT_N_THREADS",
+        "n_gpu_layers": "CHATBOT_N_GPU_LAYERS",
+        "temperature": "CHATBOT_TEMPERATURE",
+        "max_tokens": "CHATBOT_MAX_TOKENS",
+    }.items():
+        if environment.get(environment_key):
+            values[key] = environment[environment_key]
+    for key, value in {
+        "model_path": model_path,
+        "classifier": classifier,
+        "classifier_model_path": classifier_model_path,
+        "n_ctx": n_ctx,
+        "n_threads": n_threads,
+        "n_gpu_layers": n_gpu_layers,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }.items():
+        if value is not None:
+            values[key] = value
 
     normalized_provider = str(values["provider"]).strip().lower()
     normalized_model = str(values["model"]).strip()
@@ -66,18 +116,43 @@ def load_settings(
         raise ConfigurationError("minimum relevance must be a number") from error
     if not 0 <= relevance <= 1:
         raise ConfigurationError("minimum relevance must be between 0 and 1")
+    normalized_classifier = str(values["classifier"]).strip().lower()
+    if normalized_classifier not in {"rules", "qwen"}:
+        raise ConfigurationError("classifier must be 'rules' or 'qwen'")
+    try:
+        numeric_values = {
+            "n_ctx": int(values["n_ctx"]),
+            "n_threads": int(values["n_threads"]),
+            "n_gpu_layers": int(values["n_gpu_layers"]),
+            "temperature": float(values["temperature"]),
+            "max_tokens": int(values["max_tokens"]),
+        }
+    except (TypeError, ValueError) as error:
+        raise ConfigurationError("model runtime settings must be numeric") from error
+    if numeric_values["n_ctx"] < 512 or numeric_values["n_threads"] < 1 or numeric_values["max_tokens"] < 1:
+        raise ConfigurationError("context, threads, and max tokens must be positive and sufficiently large")
+    if numeric_values["n_gpu_layers"] < 0 or numeric_values["temperature"] < 0:
+        raise ConfigurationError("GPU layers and temperature cannot be negative")
     return Settings(
         provider=normalized_provider,
         model=normalized_model,
         config_file=selected_file,
         knowledge_file=Path(values["knowledge_file"]).expanduser(),
         minimum_relevance=relevance,
+        model_path=_optional_path(values["model_path"]),
+        classifier=normalized_classifier,
+        classifier_model_path=_optional_path(values["classifier_model_path"]),
+        **numeric_values,
     )
 
 
 def _config_path(environ: dict[str, str]) -> Path | None:
     configured_path = environ.get("CHATBOT_CONFIG_FILE")
     return Path(configured_path).expanduser() if configured_path else None
+
+
+def _optional_path(value: Any) -> Path | None:
+    return Path(value).expanduser() if value else None
 
 
 def _read_config(path: Path | None) -> dict[str, Any]:

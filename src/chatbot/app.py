@@ -5,7 +5,9 @@ from chatbot.config import ConfigurationError, Settings
 from chatbot.domain.models import Message
 from chatbot.domain.requests import ChatRequest, PipelineOutcome
 from chatbot.pipeline import HelpPipeline, PipelinePolicy
-from chatbot.providers.base import Answerer, ChatProvider
+from chatbot.providers.base import Answerer, ChatProvider, ProviderError
+from chatbot.providers.classifier import Classifier, RulesClassifier
+from chatbot.providers.llama_cpp import LlamaCppAnswerer, QwenClassifier
 from chatbot.providers.mock import MockAnswerer, MockProvider
 from chatbot.retrieval.index import DocumentIndex
 from chatbot.ui.repl import Repl
@@ -20,7 +22,33 @@ def create_provider(settings: Settings) -> ChatProvider:
 def create_answerer(settings: Settings) -> Answerer:
     if settings.provider == "mock":
         return MockAnswerer(settings.model)
+    if settings.provider == "llama_cpp":
+        if settings.model_path is None:
+            raise ConfigurationError("model_path is required for the llama_cpp provider")
+        return LlamaCppAnswerer(
+            settings.model_path,
+            model=settings.model,
+            n_ctx=settings.n_ctx,
+            n_threads=settings.n_threads,
+            n_gpu_layers=settings.n_gpu_layers,
+            temperature=settings.temperature,
+            max_tokens=settings.max_tokens,
+        )
     raise ConfigurationError(f"unsupported provider: {settings.provider}")
+
+
+def create_classifier(settings: Settings) -> Classifier:
+    if settings.classifier == "rules":
+        return RulesClassifier()
+    if settings.classifier == "qwen":
+        if settings.classifier_model_path is None:
+            raise ConfigurationError("classifier_model_path is required for the qwen classifier")
+        return QwenClassifier(
+            settings.classifier_model_path,
+            n_threads=settings.n_threads,
+            n_gpu_layers=settings.n_gpu_layers,
+        )
+    raise ConfigurationError(f"unsupported classifier: {settings.classifier}")
 
 
 class ChatbotService:
@@ -28,23 +56,37 @@ class ChatbotService:
         self.settings = settings
         self.index: DocumentIndex | None = None
         self.answerer: Answerer | None = None
+        self.classifier: Classifier | None = None
         self.pipeline: HelpPipeline | None = None
         self.ready = False
 
     def initialize(self) -> None:
+        answerer: Answerer | None = None
+        classifier: Classifier | None = None
+        index: DocumentIndex | None = None
         try:
             index = DocumentIndex.from_cache(self.settings.knowledge_file)
-        except ValueError as error:
+            answerer = create_answerer(self.settings)
+            classifier = create_classifier(self.settings)
+            _initialize_component(answerer)
+            _initialize_component(classifier)
+            _warmup_component(answerer)
+            self.pipeline = HelpPipeline(
+                index,
+                answerer,
+                PipelinePolicy(self.settings.minimum_relevance),
+                classifier,
+            )
+            self.answerer = answerer
+            self.classifier = classifier
+            self.index = index
+            self.ready = True
+        except (ConfigurationError, ProviderError, ValueError) as error:
+            _close_component(classifier)
+            _close_component(answerer)
+            if index is not None:
+                index.close()
             raise ConfigurationError(str(error)) from error
-        answerer = create_answerer(self.settings)
-        self.pipeline = HelpPipeline(
-            index,
-            answerer,
-            PipelinePolicy(self.settings.minimum_relevance),
-        )
-        self.answerer = answerer
-        self.index = index
-        self.ready = True
 
     def handle(self, request: ChatRequest, history: tuple[Message, ...] = ()) -> PipelineOutcome:
         if not self.ready or self.pipeline is None:
@@ -55,9 +97,12 @@ class ChatbotService:
         if self.index is not None:
             self.index.close()
         self.index = None
+        _close_component(self.classifier)
+        self.classifier = None
+        _close_component(self.answerer)
+        self.answerer = None
         self.ready = False
         self.pipeline = None
-        self.answerer = None
 
 
 def run(
@@ -79,3 +124,23 @@ def run(
         ).run()
     finally:
         service.shutdown()
+
+
+def _initialize_component(component: object) -> None:
+    initialize = getattr(component, "initialize", None)
+    if initialize is not None:
+        initialize()
+
+
+def _warmup_component(component: object) -> None:
+    warmup = getattr(component, "warmup", None)
+    if warmup is not None:
+        warmup()
+
+
+def _close_component(component: object | None) -> None:
+    if component is None:
+        return
+    close = getattr(component, "close", None)
+    if close is not None:
+        close()
